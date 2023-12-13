@@ -178,6 +178,10 @@ methods:
       - name: accountId
         ty: AccountId
 
+  - method: alephNode_ready
+    cache:
+      size: 0
+
 subscriptions:
   - subscribe: author_submitAndWatchExtrinsic
     unsubscribe: author_unwatchExtrinsic
