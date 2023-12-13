@@ -19,7 +19,9 @@ use super::{Extension, ExtensionRegistry};
 use crate::extensions::rate_limit::{MethodWeights, RateLimitBuilder, XFF};
 
 mod proxy_get_request;
+mod ready_get_request;
 use proxy_get_request::{ProxyGetRequestLayer, ProxyGetRequestMethod};
+use ready_get_request::ReadyProxyLayer;
 
 pub struct SubwayServerBuilder {
     pub config: ServerConfig,
@@ -124,7 +126,8 @@ impl SubwayServerBuilder {
                             .collect(),
                     )
                     .expect("Invalid health config"),
-                );
+                )
+                .layer(ReadyProxyLayer);
 
             let rpc_module = rpc_module.clone();
             let stop_handle = stop_handle.clone();

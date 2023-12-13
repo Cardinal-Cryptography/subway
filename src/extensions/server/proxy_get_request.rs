@@ -172,7 +172,7 @@ where
     }
 }
 
-mod response {
+pub mod response {
     use jsonrpsee::types::{error::ErrorCode, ErrorObjectOwned, Id, Response, ResponsePayload};
 
     const JSON: &str = "application/json; charset=utf-8";
