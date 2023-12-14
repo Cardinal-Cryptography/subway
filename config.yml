@@ -19,7 +19,7 @@ extensions:
     max_connections: 2000
     http_methods:
       - path: /health
-        method: system_health
+        method: health
       - path: /liveness
         method: chain_getBlockHash
     cors: all

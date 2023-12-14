@@ -189,6 +189,8 @@ pub async fn build(config: Config) -> anyhow::Result<SubwayServerHandle> {
                 module.register_alias(alias_new, alias_old)?;
             }
 
+            module.register_method("health", |_, _| Ok::<_, ErrorObjectOwned>(()))?;
+
             let mut rpc_methods = module.method_names().map(|x| x.to_owned()).collect::<Vec<_>>();
 
             rpc_methods.sort();
