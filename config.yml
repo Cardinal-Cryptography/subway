@@ -1,8 +1,7 @@
 extensions:
   client:
     endpoints:
-      - wss://acala-rpc.dwellir.com
-      - wss://acala-rpc-0.aca-api.network
+      - ws://localhost:9944
   event_bus:
   substrate_api:
     stale_timeout_seconds: 180 # rotate endpoint if no new blocks for 3 minutes
@@ -14,7 +13,7 @@ extensions:
   merge_subscription:
     keep_alive_seconds: 60
   server:
-    port: 9944
+    port: 9934
     listen_address: '0.0.0.0'
     max_connections: 2000
     http_methods:
