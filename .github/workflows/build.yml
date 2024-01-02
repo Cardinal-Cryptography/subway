@@ -7,8 +7,8 @@ on:
     branches:
       - alephzero
     paths-ignore:
-        - ".github/**"
-        - "*.md"
+      - ".github/**"
+      - "*.md"
 
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
