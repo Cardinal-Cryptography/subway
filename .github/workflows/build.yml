@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: GIT | Checkout Source code
         uses: actions/checkout@v4
+        with:
+          submodules: ''true"
 
       - name: Call action get-ref-properties
         id: get-ref-properties
