@@ -1,5 +1,5 @@
 ---
-name: Push to alephzero branch
+name: Build subway docker image and push to ECR.
 
 on:
   workflow_dispatch:
