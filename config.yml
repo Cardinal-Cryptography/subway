@@ -32,9 +32,13 @@ extensions:
     # use X-Forwarded-For header to get real ip, if available (e.g. behind a load balancer).
     # WARNING: Use with caution, as this xff header can be forged.
     use_xff: true # default is false
+  prometheus:
+    port: 9615
+    label: "dev"
 
 middlewares:
   methods:
+    - prometheus
     - delay
     - response
     - inject_params

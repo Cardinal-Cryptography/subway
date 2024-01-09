@@ -2,6 +2,7 @@ pub mod block_tag;
 pub mod cache;
 pub mod delay;
 pub mod inject_params;
+pub mod prometheus;
 pub mod response;
 pub mod upstream;
 
