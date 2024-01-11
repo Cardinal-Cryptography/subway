@@ -30,7 +30,6 @@ pub async fn create_method_middleware(
         "block_tag" => block_tag::BlockTagMiddleware::build(method, extensions).await,
         "inject_params" => inject_params::InjectParamsMiddleware::build(method, extensions).await,
         "delay" => delay::DelayMiddleware::build(method, extensions).await,
-        "prometheus" => prometheus::PrometheusMiddleware::build(method, extensions).await,
         #[cfg(test)]
         "crazy" => testing::CrazyMiddleware::build(method, extensions).await,
         _ => panic!("Unknown method middleware: {}", name),

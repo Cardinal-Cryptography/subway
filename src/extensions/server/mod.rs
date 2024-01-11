@@ -7,6 +7,7 @@ use jsonrpsee::server::{
     middleware::rpc::RpcServiceBuilder, stop_channel, RandomStringIdProvider, RpcModule, ServerBuilder, ServerHandle,
 };
 use jsonrpsee::Methods;
+use prometheus_endpoint::Registry;
 use serde::ser::StdError;
 use serde::Deserialize;
 use std::str::FromStr;
@@ -18,8 +19,10 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use super::{Extension, ExtensionRegistry};
 use crate::extensions::rate_limit::{MethodWeights, RateLimitBuilder, XFF};
 
+mod prometheus;
 mod proxy_get_request;
 mod ready_get_request;
+use crate::extensions::server::prometheus::PrometheusService;
 use proxy_get_request::{ProxyGetRequestLayer, ProxyGetRequestMethod};
 use ready_get_request::ReadyProxyLayer;
 
@@ -100,6 +103,7 @@ impl SubwayServerBuilder {
         &self,
         rate_limit_builder: Option<Arc<RateLimitBuilder>>,
         rpc_method_weights: MethodWeights,
+        prometheus_registry: Registry,
         rpc_module_builder: impl FnOnce() -> Fut,
     ) -> anyhow::Result<(SocketAddr, ServerHandle)> {
         let config = self.config.clone();
@@ -133,6 +137,7 @@ impl SubwayServerBuilder {
             let stop_handle = stop_handle.clone();
             let rate_limit_builder = rate_limit_builder.clone();
             let rpc_method_weights = rpc_method_weights.clone();
+            let prometheus_registry = prometheus_registry.clone();
 
             async move {
                 // service_fn handle each request
@@ -156,7 +161,8 @@ impl SubwayServerBuilder {
                             rate_limit_builder
                                 .as_ref()
                                 .and_then(|r| r.connection_limit(rpc_method_weights.clone())),
-                        );
+                        )
+                        .layer_fn(|s| PrometheusService::new(s, &prometheus_registry));
 
                     let service_builder = ServerBuilder::default()
                         .set_rpc_middleware(rpc_middleware)
