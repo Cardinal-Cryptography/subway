@@ -13,6 +13,7 @@ use serde::Deserialize;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::{future::Future, net::SocketAddr};
+use tower::layer::layer_fn;
 use tower::ServiceBuilder;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -103,7 +104,7 @@ impl SubwayServerBuilder {
         &self,
         rate_limit_builder: Option<Arc<RateLimitBuilder>>,
         rpc_method_weights: MethodWeights,
-        prometheus_registry: Registry,
+        prometheus_registry: Option<Registry>,
         rpc_module_builder: impl FnOnce() -> Fut,
     ) -> anyhow::Result<(SocketAddr, ServerHandle)> {
         let config = self.config.clone();
@@ -162,7 +163,9 @@ impl SubwayServerBuilder {
                                 .as_ref()
                                 .and_then(|r| r.connection_limit(rpc_method_weights.clone())),
                         )
-                        .layer_fn(|s| PrometheusService::new(s, &prometheus_registry));
+                        .option_layer(
+                            prometheus_registry.as_ref().map(|r| layer_fn(|s| PrometheusService::new(s, r)))
+                        );
 
                     let service_builder = ServerBuilder::default()
                         .set_rpc_middleware(rpc_middleware)

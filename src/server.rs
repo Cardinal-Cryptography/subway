@@ -54,16 +54,15 @@ pub async fn build(config: Config) -> anyhow::Result<SubwayServerHandle> {
     let prometheus = extensions_registry
         .read()
         .await
-        .get::<crate::extensions::prometheus::Prometheus>()
-        .expect("Prometheus extension not found");
-    let prometheus_registry = prometheus.registry();
+        .get::<crate::extensions::prometheus::Prometheus>();
+    let prometheus_registry = prometheus.map(|p| p.registry().clone());
 
     let registry = extensions_registry.clone();
     let (addr, handle) = server_builder
         .build(
             rate_limit_builder,
             rpc_method_weights,
-            prometheus_registry.clone(),
+            prometheus_registry,
             move || async move {
                 let mut module = RpcModule::new(());
 
