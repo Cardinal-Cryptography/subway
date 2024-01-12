@@ -40,8 +40,11 @@ impl Prometheus {
             .chain_label
             .clone()
             .map(|l| iter::once(("chain".to_string(), l.clone())).collect());
-        let registry =
-            Registry::new_custom(config.prefix.clone(), labels).expect("this can only fail if the prefix is empty");
+        let prefix = match config.prefix {
+            Some(p) if p.is_empty() => None,
+            p => p,
+        };
+        let registry = Registry::new_custom(prefix, labels).expect("Can't happen");
 
         let exporter_task = start_prometheus_exporter(registry.clone(), config.port);
         Self {
