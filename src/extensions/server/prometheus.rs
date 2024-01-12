@@ -6,7 +6,7 @@ use prometheus_endpoint::{register, Counter, Histogram, HistogramOpts, Registry,
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-type MetricPair = (Counter<U64>, Histogram);
+pub type MetricPair = (Counter<U64>, Histogram);
 
 #[derive(Clone)]
 pub struct PrometheusService<S> {
@@ -16,11 +16,11 @@ pub struct PrometheusService<S> {
 }
 
 impl<S> PrometheusService<S> {
-    pub fn new(inner: S, registry: &Registry) -> Self {
+    pub fn new(inner: S, registry: &Registry, call_metrics: Arc<Mutex<HashMap<String, MetricPair>>>) -> Self {
         Self {
             inner,
+            call_metrics,
             registry: registry.clone(),
-            call_metrics: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 

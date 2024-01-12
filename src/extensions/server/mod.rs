@@ -10,8 +10,9 @@ use jsonrpsee::Methods;
 use prometheus_endpoint::Registry;
 use serde::ser::StdError;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::{future::Future, net::SocketAddr};
 use tower::layer::layer_fn;
 use tower::ServiceBuilder;
@@ -23,7 +24,7 @@ use crate::extensions::rate_limit::{MethodWeights, RateLimitBuilder, XFF};
 mod prometheus;
 mod proxy_get_request;
 mod ready_get_request;
-use crate::extensions::server::prometheus::PrometheusService;
+use crate::extensions::server::prometheus::{MetricPair, PrometheusService};
 use proxy_get_request::{ProxyGetRequestLayer, ProxyGetRequestMethod};
 use ready_get_request::ReadyProxyLayer;
 
@@ -112,6 +113,7 @@ impl SubwayServerBuilder {
         let (stop_handle, server_handle) = stop_channel();
         let handle = stop_handle.clone();
         let rpc_module = rpc_module_builder().await?;
+        let metrics: Arc<Mutex<HashMap<String, MetricPair>>> = Default::default();
 
         // make_service handle each connection
         let make_service = make_service_fn(move |socket: &AddrStream| {
@@ -139,6 +141,7 @@ impl SubwayServerBuilder {
             let rate_limit_builder = rate_limit_builder.clone();
             let rpc_method_weights = rpc_method_weights.clone();
             let prometheus_registry = prometheus_registry.clone();
+            let metrics = metrics.clone();
 
             async move {
                 // service_fn handle each request
@@ -166,7 +169,7 @@ impl SubwayServerBuilder {
                         .option_layer(
                             prometheus_registry
                                 .as_ref()
-                                .map(|r| layer_fn(|s| PrometheusService::new(s, r))),
+                                .map(|r| layer_fn(|s| PrometheusService::new(s, r, metrics.clone()))),
                         );
 
                     let service_builder = ServerBuilder::default()
