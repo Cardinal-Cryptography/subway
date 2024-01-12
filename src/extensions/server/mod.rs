@@ -164,7 +164,9 @@ impl SubwayServerBuilder {
                                 .and_then(|r| r.connection_limit(rpc_method_weights.clone())),
                         )
                         .option_layer(
-                            prometheus_registry.as_ref().map(|r| layer_fn(|s| PrometheusService::new(s, r)))
+                            prometheus_registry
+                                .as_ref()
+                                .map(|r| layer_fn(|s| PrometheusService::new(s, r))),
                         );
 
                     let service_builder = ServerBuilder::default()
