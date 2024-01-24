@@ -33,7 +33,7 @@ extensions:
     # WARNING: Use with caution, as this xff header can be forged.
     use_xff: true # default is false
   prometheus:
-    port: 9615
+    port: 9616
     label: "dev"
 
 middlewares:
