@@ -1,10 +1,75 @@
 methods:
+  - method: account_nextIndex
+    cache:
+      size: 0
+    params:
+      - name: accountId
+        ty: String
+
+  - method: alephNode_emergencyFinalize
+    cache:
+      size: 0
+    params:
+      - name: justification
+        ty: Bytes
+      - name: hash
+        ty: BlockHash
+      - name: blockNumber
+        ty: BlockNumber
+
+  - method: alephNode_getBlockAuthor
+    params:
+      - name: hash
+        ty: BlockHash
+
+  - method: alephNode_ready
+    cache:
+      size: 0
+
+  - method: author_hasKey
+    cache:
+      size: 0
+    params:
+      - name: publicKey
+        ty: Bytes
+      - name: keyType
+        ty: String
+
+  - method: author_hasSessionKeys
+    cache:
+      size: 0
+    params:
+      - name: sessionKeys
+        ty: Bytes
+
+  - method: author_insertKey
+    cache:
+      size: 0
+    params:
+      - name: keyType
+        ty: String
+      - name: suri
+        ty: String
+      - name: publicKey
+        ty: Bytes
+
   - method: author_submitExtrinsic
     cache:
       size: 0
     params:
       - name: extrinsic
         ty: Bytes
+
+  - method: author_removeExtrinsic
+    cache:
+      size: 0
+    params:
+      - name: bytesOrHash
+        ty: Bytes
+
+  - method: author_rotateKeys
+    cache:
+      size: 0
 
   - method: author_pendingExtrinsics
     cache:
@@ -38,6 +103,17 @@ methods:
       ttl_seconds: 6
       invalidate_at: OnNewFinalizedHead
 
+  - method: state_getChildReadProof
+    params:
+      - name: childStorageKey
+        ty: StorageKey
+      - name: keys
+        ty: 'Vec<StorageKey>'
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
   - method: state_getRuntimeVersion
     params:
       - name: at
@@ -52,7 +128,43 @@ methods:
         optional: true
         inject: true
 
+  - method: state_getPairs
+    params:
+      - name: prefix
+        ty: StorageKey
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
   - method: state_getStorage
+    params:
+      - name: key
+        ty: StorageKey
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: state_getStorageHash
+    params:
+      - name: key
+        ty: StorageKey
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: state_getStorageSize
+    params:
+      - name: key
+        ty: StorageKey
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: state_getKeys
     params:
       - name: key
         ty: StorageKey
@@ -75,6 +187,26 @@ methods:
         optional: true
         inject: true
 
+  - method: state_getReadProof
+    params:
+      - name: keys
+        ty: 'Vec<StorageKey>'
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: state_queryStorage
+    params:
+      - name: keys
+        ty: 'Vec<StorageKey>'
+      - name: fromBlock
+        ty: BlockHash
+      - name: toBlock
+        ty: BlockHash
+        optional: true
+        inject: false
+
   - method: state_queryStorageAt
     params:
       - name: keys
@@ -83,6 +215,23 @@ methods:
         ty: BlockHash
         optional: true
         inject: true
+
+  - method: state_traceBlock
+    params:
+      - name: Block
+        ty: BlockHash
+      - name: targets
+        ty: String
+        optional: true
+        inject: false
+      - name: StorageKeys
+        ty: String
+        optional: true
+        inject: false
+      - name: methods
+        ty: String
+        optional: true
+        inject: false
 
   - method: state_call
     cache:
@@ -97,6 +246,18 @@ methods:
         ty: BlockHash
         optional: true
         inject: true
+
+  - method: childstate_getKeys
+    params:
+      - name: childKey
+        ty: StorageKey
+      - name: prefix
+        ty: StorageKey
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
 
   - method: childstate_getKeysPaged
     params:
@@ -125,19 +286,79 @@ methods:
         optional: true
         inject: true
 
-  - method: system_chain
-    cache:
-      size: 1
+  - method: childstate_getStorageEntries
+    params:
+      - name: childKey
+        ty: StorageKey
+      - name: keys
+        ty: 'Vec<StorageKey>'
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
 
-  - method: system_properties
+  - method: childstate_getStorageHash
+    params:
+      - name: childKey
+        ty: StorageKey
+      - name: keys
+        ty: 'Vec<StorageKey>'
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: childstate_getStorageSize
+    params:
+      - name: childKey
+        ty: StorageKey
+      - name: keys
+        ty: 'Vec<StorageKey>'
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: offchain_localStorageGet
+    params:
+      - name: kind
+        ty: StorageKind
+      - name: key
+        ty: Bytes
+
+  - method: offchain_localStorageSet
+    params:
+      - name: kind
+        ty: StorageKind
+      - name: key
+        ty: Bytes
+      - name: value
+        ty: Bytes
+
+  - method: payment_queryFeeDetails
+    params:
+      - name: extrinsic
+        ty: Bytes
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: payment_queryFeeInfo
+    params:
+      - name: extrinsic
+        ty: Bytes
+      - name: at
+        ty: BlockHash
+        optional: true
+        inject: true
+
+  - method: system_chain
     cache:
       size: 1
 
   - method: system_name
     response: Subway
-
-  - method: system_version
-    response: 1.0.0-dev
 
   - method: system_chainType
     cache:
@@ -148,7 +369,41 @@ methods:
       size: 1
 
   - method: system_nodeRoles
-    response: [ 'Full' ]
+    cache:
+      size: 1
+
+  - method: system_peers
+
+  - method: system_properties
+    cache:
+      size: 1
+
+  - method: system_removeReservedPeer
+    params:
+      - name: peerId
+        ty: String
+    cache:
+      size: 0
+
+  - method: system_reservedPeers
+    cache:
+      size: 0
+
+  - method: system_resetLogFilter
+    cache:
+      size: 0
+
+  - method: system_syncStat
+    cache:
+      size: 0
+
+  - method: system_version
+    cache:
+      size: 1
+
+  - method: system_unstable_networkState
+    cache:
+      size: 1
 
   - method: system_localListenAddresses
     cache:
@@ -178,9 +433,20 @@ methods:
       - name: accountId
         ty: AccountId
 
-  - method: alephNode_ready
+  - method: system_addLogFilter
     cache:
       size: 0
+    params:
+      - name: directives
+        ty: String
+
+  - method: system_addReservedPeer
+    cache:
+      size: 0
+    params:
+      - name: peer
+        ty: String
+
 
 subscriptions:
   - subscribe: author_submitAndWatchExtrinsic
@@ -207,15 +473,34 @@ subscriptions:
     name: state_runtimeVersion
     merge_strategy: replace
 
+  - subscribe: chain_subscribeRuntimeVersion
+    unsubscribe: chain_unsubscribeRuntimeVersion
+    name: chain_runtimeVersion
+    merge_strategy: replace
+
   - subscribe: state_subscribeStorage
     unsubscribe: state_unsubscribeStorage
     name: state_storage
     merge_strategy: merge_storage_changes
 
+  - subscribe: subscribe_newHead
+    unsubscribe: unsubscribe_newHead
+    name: newHead
+    merge_strategy: merge_storage_changes
+
+  - subscribe: transaction_unstable_submitAndWatch
+    unsubscribe: transaction_unstable_unwatch
+    name: transaction_unstableSubmit
+
 aliases:
   - [ chain_subscribeNewHeads, chain_subscribeNewHead ]
   - [ chain_unsubscribeNewHeads, chain_unsubscribeNewHead ]
+  - [ chain_subscribeFinalizedHeads, chain_subscribeFinalisedHeads ]
+  - [ chain_unsubscribeFinalizedHeads, chain_unsubscribeFinalisedHeads ]
   - [ chain_getBlockHash, chain_getHead ]
   - [ state_getKeysPaged, state_getKeysPagedAt ]
   - [ state_getStorage, state_getStorageAt ]
+  - [ state_getStorageHash, state_getStorageHashAt ]
+  - [ state_getStorageSize, state_getStorageSizeAt ]
   - [ childstate_getKeysPaged, childstate_getKeysPagedAt ]
+  - [ chain_getFinalizedHead, chain_getFinalisedHead ]
