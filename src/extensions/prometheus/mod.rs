@@ -59,7 +59,7 @@ impl Prometheus {
 }
 
 fn start_prometheus_exporter(registry: Registry, port: u16) -> JoinHandle<()> {
-    let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), port);
+    let addr = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), port);
 
     tokio::spawn(async move {
         init_prometheus(addr, registry).await.unwrap();
