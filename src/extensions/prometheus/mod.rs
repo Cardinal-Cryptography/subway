@@ -4,7 +4,7 @@ use prometheus_endpoint::init_prometheus;
 use prometheus_endpoint::Registry;
 use serde::Deserialize;
 use std::iter;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use tokio::task::JoinHandle;
 
 pub struct Prometheus {
@@ -21,6 +21,7 @@ impl Drop for Prometheus {
 #[derive(Deserialize, Debug, Clone)]
 pub struct PrometheusConfig {
     pub port: u16,
+    pub listen_address: String,
     pub prefix: Option<String>,
     pub chain_label: Option<String>,
 }
@@ -46,7 +47,7 @@ impl Prometheus {
         };
         let registry = Registry::new_custom(prefix, labels).expect("Can't happen");
 
-        let exporter_task = start_prometheus_exporter(registry.clone(), config.port);
+        let exporter_task = start_prometheus_exporter(registry.clone(), config.port, config.listen_address);
         Self {
             registry,
             exporter_task,
@@ -58,8 +59,9 @@ impl Prometheus {
     }
 }
 
-fn start_prometheus_exporter(registry: Registry, port: u16) -> JoinHandle<()> {
-    let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), port);
+fn start_prometheus_exporter(registry: Registry, port: u16, listen_address: String) -> JoinHandle<()> {
+    let address = listen_address.parse().unwrap();
+    let addr = SocketAddr::new(address, port);
 
     tokio::spawn(async move {
         init_prometheus(addr, registry).await.unwrap();
