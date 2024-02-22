@@ -115,7 +115,7 @@ impl SubwayServerBuilder {
         let handle = stop_handle.clone();
         let rpc_module = rpc_module_builder().await?;
         let metrics: Arc<Mutex<HashMap<String, MetricPair>>> = Default::default();
-        let ws_metrics = Arc::new(WsMetrics::new(prometheus_registry.as_ref()));
+        let ws_metrics = WsMetrics::new(prometheus_registry.as_ref());
 
         // make_service handle each connection
         let make_service = make_service_fn(move |socket: &AddrStream| {

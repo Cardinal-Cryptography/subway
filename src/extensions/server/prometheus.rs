@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 
 pub type MetricPair = (Counter<U64>, Histogram);
 
+#[derive(Clone)]
 pub enum WsMetrics {
     Prometheus(InnerMetrics),
     Noop,
@@ -34,6 +35,7 @@ impl WsMetrics {
     }
 }
 
+#[derive(Clone)]
 pub struct InnerMetrics {
     open_session_count: Counter<U64>,
     closed_session_count: Counter<U64>,
