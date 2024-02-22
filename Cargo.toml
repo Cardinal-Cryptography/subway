@@ -45,7 +45,7 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter", "json"] }
 
 prometheus-endpoint = "2.1.2"
 
-jsonrpsee = { path = "./vendor/jsonrpsee/jsonrpsee", features = ["full"] }
+jsonrpsee = { version = "0.22.1",features = ["full"] }
 governor = { path = "./vendor/governor/governor" }
 
 [dev-dependencies]
