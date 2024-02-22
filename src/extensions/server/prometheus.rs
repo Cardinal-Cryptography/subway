@@ -8,6 +8,58 @@ use std::sync::{Arc, Mutex};
 
 pub type MetricPair = (Counter<U64>, Histogram);
 
+pub enum WsMetrics {
+    Prometheus(InnerMetrics),
+    Noop,
+}
+
+impl WsMetrics {
+    pub fn new(registry: Option<&Registry>) -> Self {
+        match registry {
+            None => Self::Noop,
+            Some(r) => Self::Prometheus(InnerMetrics::new(r)),
+        }
+    }
+
+    pub fn ws_open(&self) {
+        if let Self::Prometheus(inner) = self {
+            inner.ws_open();
+        }
+    }
+
+    pub fn ws_closed(&self) {
+        if let Self::Prometheus(inner) = self {
+            inner.ws_closed();
+        }
+    }
+}
+
+pub struct InnerMetrics {
+    open_session_count: Counter<U64>,
+    closed_session_count: Counter<U64>,
+}
+
+impl InnerMetrics {
+    fn new(registry: &Registry) -> Self {
+        let open_counter = Counter::new("open_ws_counter", "No help").unwrap();
+        let closed_counter = Counter::new("closed_ws_counter", "No help").unwrap();
+
+        let open_session_count = register(open_counter, registry).unwrap();
+        let closed_session_count = register(closed_counter, registry).unwrap();
+        Self {
+            open_session_count,
+            closed_session_count,
+        }
+    }
+    fn ws_open(&self) {
+        self.open_session_count.inc();
+    }
+
+    fn ws_closed(&self) {
+        self.closed_session_count.inc();
+    }
+}
+
 #[derive(Clone)]
 pub struct PrometheusService<S> {
     inner: S,
