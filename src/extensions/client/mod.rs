@@ -11,8 +11,8 @@ use async_trait::async_trait;
 use futures::TryFutureExt;
 use jsonrpsee::{
     core::{
-        client::{ClientT, Subscription, SubscriptionClientT},
-        Error, JsonValue,
+        client::{ClientT, Error, Subscription, SubscriptionClientT},
+        JsonValue,
     },
     ws_client::{WsClient, WsClientBuilder},
 };

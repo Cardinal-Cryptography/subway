@@ -88,7 +88,7 @@ impl MergeSubscriptionMiddleware {
         unsubscribe: String,
     ) -> Result<
         Box<dyn FnOnce() -> broadcast::Receiver<SubscriptionMessage> + Sync + Send + 'static>,
-        jsonrpsee::core::Error,
+        jsonrpsee::core::client::Error,
     > {
         if let Some(tx) = self.upstream_subs.read().await.get(&key).cloned() {
             tracing::trace!("Found existing upstream subscription for {}", &subscribe);
