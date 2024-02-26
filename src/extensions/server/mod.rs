@@ -11,9 +11,9 @@ use jsonrpsee::Methods;
 use prometheus_endpoint::Registry;
 use serde::ser::StdError;
 use serde::Deserialize;
-use std::collections::HashMap;
+
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::{future::Future, net::SocketAddr};
 use tower::layer::layer_fn;
 use tower::ServiceBuilder;
@@ -25,7 +25,7 @@ use crate::extensions::rate_limit::{MethodWeights, RateLimitBuilder, XFF};
 mod prometheus;
 mod proxy_get_request;
 mod ready_get_request;
-use crate::extensions::server::prometheus::{MetricPair, PrometheusService, WsMetrics};
+use crate::extensions::server::prometheus::{PrometheusService, Protocol, WsMetrics};
 use proxy_get_request::{ProxyGetRequestLayer, ProxyGetRequestMethod};
 use ready_get_request::ReadyProxyLayer;
 
@@ -114,7 +114,6 @@ impl SubwayServerBuilder {
         let (stop_handle, server_handle) = stop_channel();
         let handle = stop_handle.clone();
         let rpc_module = rpc_module_builder().await?;
-        let metrics: Arc<Mutex<HashMap<String, MetricPair>>> = Default::default();
         let ws_metrics = WsMetrics::new(prometheus_registry.as_ref());
 
         // make_service handle each connection
@@ -143,12 +142,14 @@ impl SubwayServerBuilder {
             let rate_limit_builder = rate_limit_builder.clone();
             let rpc_method_weights = rpc_method_weights.clone();
             let prometheus_registry = prometheus_registry.clone();
-            let metrics = metrics.clone();
             let ws_metrics = ws_metrics.clone();
 
             async move {
                 // service_fn handle each request
                 Ok::<_, Box<dyn StdError + Send + Sync>>(service_fn(move |req| {
+                    let is_websocket = ws::is_upgrade_request(&req);
+                    let protocol = if is_websocket { Protocol::Ws } else { Protocol::Http };
+
                     let mut socket_ip = socket_ip.clone();
                     let methods: Methods = rpc_module.clone().into();
                     let stop_handle = stop_handle.clone();
@@ -173,7 +174,7 @@ impl SubwayServerBuilder {
                         .option_layer(
                             prometheus_registry
                                 .as_ref()
-                                .map(|r| layer_fn(|s| PrometheusService::new(s, r, metrics.clone()))),
+                                .map(|r| layer_fn(|s| PrometheusService::new(s, r, protocol))),
                         );
 
                     let service_builder = ServerBuilder::default()
@@ -184,8 +185,6 @@ impl SubwayServerBuilder {
                         .to_service_builder();
 
                     let mut service = service_builder.build(methods, stop_handle);
-
-                    let is_websocket = ws::is_upgrade_request(&req);
 
                     if is_websocket {
                         let on_ws_close = service.on_session_closed();
