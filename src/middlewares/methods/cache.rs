@@ -124,7 +124,7 @@ mod tests {
     #[tokio::test]
     async fn handle_ok_resp() {
         let cache = Cache::new(NonZeroUsize::try_from(1).unwrap(), None);
-        let middleware = CacheMiddleware::new(cache.clone());
+        let middleware = CacheMiddleware::new(cache.clone(), RpcMetrics::noop());
 
         let res = middleware
             .call(
@@ -201,7 +201,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_cache_null() {
-        let middleware = CacheMiddleware::new(Cache::new(NonZeroUsize::try_from(3).unwrap(), None));
+        let middleware = CacheMiddleware::new(Cache::new(NonZeroUsize::try_from(3).unwrap(), None), RpcMetrics::noop());
 
         let res = middleware
             .call(
@@ -228,10 +228,10 @@ mod tests {
 
     #[tokio::test]
     async fn cache_ttl_works() {
-        let middleware = CacheMiddleware::new(Cache::new(
-            NonZeroUsize::new(1).unwrap(),
-            Some(Duration::from_millis(10)),
-        ));
+        let middleware = CacheMiddleware::new(
+            Cache::new(NonZeroUsize::new(1).unwrap(), Some(Duration::from_millis(10))),
+            RpcMetrics::noop(),
+        );
 
         let res = middleware
             .call(
@@ -271,7 +271,7 @@ mod tests {
 
     #[tokio::test]
     async fn bypass_cache() {
-        let middleware = CacheMiddleware::new(Cache::new(NonZeroUsize::try_from(3).unwrap(), None));
+        let middleware = CacheMiddleware::new(Cache::new(NonZeroUsize::try_from(3).unwrap(), None), RpcMetrics::noop());
 
         let res = middleware
             .call(
@@ -314,7 +314,7 @@ mod tests {
 
     #[tokio::test]
     async fn avoid_repeated_requests() {
-        let middleware = CacheMiddleware::new(Cache::new(NonZeroUsize::try_from(3).unwrap(), None));
+        let middleware = CacheMiddleware::new(Cache::new(NonZeroUsize::try_from(3).unwrap(), None), RpcMetrics::noop());
 
         let (tx, mut rx) = tokio::sync::mpsc::channel(1);
         let res = middleware.call(
