@@ -4,7 +4,8 @@ use hyper::server::conn::AddrStream;
 use hyper::service::Service;
 use hyper::service::{make_service_fn, service_fn};
 use jsonrpsee::server::{
-    middleware::rpc::RpcServiceBuilder, stop_channel, RandomStringIdProvider, RpcModule, ServerBuilder, ServerHandle,
+    middleware::rpc::RpcServiceBuilder, stop_channel, ws, RandomStringIdProvider, RpcModule, ServerBuilder,
+    ServerHandle,
 };
 use jsonrpsee::Methods;
 use prometheus_endpoint::Registry;
@@ -24,7 +25,7 @@ use crate::extensions::rate_limit::{MethodWeights, RateLimitBuilder, XFF};
 mod prometheus;
 mod proxy_get_request;
 mod ready_get_request;
-use crate::extensions::server::prometheus::{MetricPair, PrometheusService};
+use crate::extensions::server::prometheus::{MetricPair, PrometheusService, WsMetrics};
 use proxy_get_request::{ProxyGetRequestLayer, ProxyGetRequestMethod};
 use ready_get_request::ReadyProxyLayer;
 
@@ -114,6 +115,7 @@ impl SubwayServerBuilder {
         let handle = stop_handle.clone();
         let rpc_module = rpc_module_builder().await?;
         let metrics: Arc<Mutex<HashMap<String, MetricPair>>> = Default::default();
+        let ws_metrics = WsMetrics::new(prometheus_registry.as_ref());
 
         // make_service handle each connection
         let make_service = make_service_fn(move |socket: &AddrStream| {
@@ -142,6 +144,7 @@ impl SubwayServerBuilder {
             let rpc_method_weights = rpc_method_weights.clone();
             let prometheus_registry = prometheus_registry.clone();
             let metrics = metrics.clone();
+            let ws_metrics = ws_metrics.clone();
 
             async move {
                 // service_fn handle each request
@@ -150,6 +153,7 @@ impl SubwayServerBuilder {
                     let methods: Methods = rpc_module.clone().into();
                     let stop_handle = stop_handle.clone();
                     let http_middleware = http_middleware.clone();
+                    let ws_metrics = ws_metrics.clone();
 
                     if let Some(true) = rate_limit_builder.as_ref().map(|r| r.use_xff()) {
                         socket_ip = req.xxf_ip().unwrap_or(socket_ip);
@@ -180,6 +184,17 @@ impl SubwayServerBuilder {
                         .to_service_builder();
 
                     let mut service = service_builder.build(methods, stop_handle);
+
+                    let is_websocket = ws::is_upgrade_request(&req);
+
+                    if is_websocket {
+                        let on_ws_close = service.on_session_closed();
+                        ws_metrics.ws_open();
+                        tokio::spawn(async move {
+                            on_ws_close.await;
+                            ws_metrics.ws_closed();
+                        });
+                    }
                     service.call(req)
                 }))
             }
