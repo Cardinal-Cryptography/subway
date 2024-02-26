@@ -5,6 +5,7 @@ use blake2::Blake2b512;
 use futures::FutureExt as _;
 use opentelemetry::trace::FutureExt;
 
+use crate::extensions::prometheus::{get_rpc_metrics, RpcMetrics};
 use crate::{
     config::CacheParams,
     extensions::cache::Cache as CacheExtension,
@@ -16,11 +17,12 @@ pub struct BypassCache(pub bool);
 
 pub struct CacheMiddleware {
     cache: Cache<Blake2b512>,
+    metrics: RpcMetrics,
 }
 
 impl CacheMiddleware {
-    pub fn new(cache: Cache<Blake2b512>) -> Self {
-        Self { cache }
+    pub fn new(cache: Cache<Blake2b512>, metrics: RpcMetrics) -> Self {
+        Self { cache, metrics }
     }
 }
 
@@ -35,6 +37,8 @@ impl MiddlewareBuilder<RpcMethod, CallRequest, CallResult> for CacheMiddleware {
             .await
             .get::<CacheExtension>()
             .expect("Cache extension not found");
+
+        let metrics = get_rpc_metrics(extensions).await;
 
         // do not cache if size is 0, otherwise use default size
         let size = match method.cache {
@@ -57,7 +61,7 @@ impl MiddlewareBuilder<RpcMethod, CallRequest, CallResult> for CacheMiddleware {
             ttl_seconds.map(std::time::Duration::from_secs),
         );
 
-        Some(Box::new(Self::new(cache)))
+        Some(Box::new(Self::new(cache, metrics)))
     }
 }
 
@@ -75,11 +79,21 @@ impl Middleware<CallRequest, CallResult> for CacheMiddleware {
                 return next(request, context).await;
             }
 
+            let metrics = self.metrics.clone();
             let key = CacheKey::<Blake2b512>::new(&request.method, &request.params);
+
+            let method = request.method.to_string();
+            metrics.cache_query(&method);
 
             let result = self
                 .cache
-                .get_or_insert_with(key.clone(), || next(request, context).boxed())
+                .get_or_insert_with(key.clone(), || {
+                    async move {
+                        metrics.cache_miss(&method);
+                        next(request, context).await
+                    }
+                    .boxed()
+                })
                 .await;
 
             if let Ok(ref value) = result {
