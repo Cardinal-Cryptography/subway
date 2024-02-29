@@ -9,6 +9,7 @@ use jsonrpsee::{
 use opentelemetry::trace::FutureExt as _;
 use serde_json::json;
 
+use crate::extensions::prometheus::get_rpc_metrics;
 use crate::{
     config::Config,
     extensions::{
@@ -57,12 +58,15 @@ pub async fn build(config: Config) -> anyhow::Result<SubwayServerHandle> {
         .get::<crate::extensions::prometheus::Prometheus>();
     let prometheus_registry = prometheus.map(|p| p.registry().clone());
 
+    let metrics = get_rpc_metrics(&extensions_registry).await;
+
     let registry = extensions_registry.clone();
     let (addr, handle) = server_builder
         .build(
             rate_limit_builder,
             rpc_method_weights,
             prometheus_registry,
+            metrics,
             move || async move {
                 let mut module = RpcModule::new(());
 

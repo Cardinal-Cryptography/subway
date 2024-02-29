@@ -1,3 +1,5 @@
+mod rpc_metrics;
+
 use super::{Extension, ExtensionRegistry};
 use async_trait::async_trait;
 use prometheus_endpoint::init_prometheus;
@@ -7,8 +9,21 @@ use std::iter;
 use std::net::SocketAddr;
 use tokio::task::JoinHandle;
 
+use crate::utils::TypeRegistryRef;
+pub use rpc_metrics::RpcMetrics;
+
+pub async fn get_rpc_metrics(registry: &TypeRegistryRef) -> RpcMetrics {
+    let prometheus = registry.read().await.get::<Prometheus>();
+
+    match prometheus {
+        None => RpcMetrics::noop(),
+        Some(prom) => prom.rpc_metrics(),
+    }
+}
+
 pub struct Prometheus {
     pub registry: Registry,
+    rpc_metrics: RpcMetrics,
     pub exporter_task: JoinHandle<()>,
 }
 
@@ -46,16 +61,22 @@ impl Prometheus {
             p => p,
         };
         let registry = Registry::new_custom(prefix, labels).expect("Can't happen");
+        let rpc_metrics = RpcMetrics::new(&registry);
 
         let exporter_task = start_prometheus_exporter(registry.clone(), config.port, config.listen_address);
         Self {
             registry,
             exporter_task,
+            rpc_metrics,
         }
     }
 
     pub fn registry(&self) -> &Registry {
         &self.registry
+    }
+
+    pub fn rpc_metrics(&self) -> RpcMetrics {
+        self.rpc_metrics.clone()
     }
 }
 
