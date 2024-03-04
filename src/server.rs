@@ -52,47 +52,95 @@ pub async fn build(config: Config) -> anyhow::Result<SubwayServerHandle> {
 
     let request_timeout_seconds = server_builder.config.request_timeout_seconds;
 
-    let prometheus = extensions_registry
-        .read()
-        .await
-        .get::<crate::extensions::prometheus::Prometheus>();
-    let prometheus_registry = prometheus.map(|p| p.registry().clone());
-
     let metrics = get_rpc_metrics(&extensions_registry).await;
 
     let registry = extensions_registry.clone();
     let (addr, handle) = server_builder
-        .build(
-            rate_limit_builder,
-            rpc_method_weights,
-            prometheus_registry,
-            metrics,
-            move || async move {
-                let mut module = RpcModule::new(());
+        .build(rate_limit_builder, rpc_method_weights, metrics, move || async move {
+            let mut module = RpcModule::new(());
 
-                let tracer = telemetry::Tracer::new("server");
+            let tracer = telemetry::Tracer::new("server");
 
-                // register methods from config
-                for method in config.rpcs.methods {
-                    let mut method_middlewares: Vec<Arc<_>> = vec![];
+            // register methods from config
+            for method in config.rpcs.methods {
+                let mut method_middlewares: Vec<Arc<_>> = vec![];
 
-                    for middleware_name in &config.middlewares.methods {
-                        if let Some(middleware) =
-                            factory::create_method_middleware(middleware_name, &method, &registry).await
-                        {
-                            method_middlewares.push(middleware.into());
-                        }
+                for middleware_name in &config.middlewares.methods {
+                    if let Some(middleware) =
+                        factory::create_method_middleware(middleware_name, &method, &registry).await
+                    {
+                        method_middlewares.push(middleware.into());
                     }
+                }
 
-                    let method_middlewares = Middlewares::new(
-                        method_middlewares,
-                        Arc::new(|_, _| async { Err(errors::failed("Bad configuration")) }.boxed()),
-                    );
+                let method_middlewares = Middlewares::new(
+                    method_middlewares,
+                    Arc::new(|_, _| async { Err(errors::failed("Bad configuration")) }.boxed()),
+                );
 
-                    let method_name = string_to_static_str(method.method.clone());
+                let method_name = string_to_static_str(method.method.clone());
 
-                    module.register_async_method(method_name, move |params, _| {
-                        let method_middlewares = method_middlewares.clone();
+                module.register_async_method(method_name, move |params, _| {
+                    let method_middlewares = method_middlewares.clone();
+                    async move {
+                        let parsed = params.parse::<JsonValue>()?;
+                        let params = if parsed == JsonValue::Null {
+                            vec![]
+                        } else {
+                            parsed.as_array().ok_or_else(|| errors::invalid_params(""))?.to_owned()
+                        };
+
+                        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+                        let timeout = tokio::time::Duration::from_secs(request_timeout_seconds);
+
+                        method_middlewares
+                            .call(CallRequest::new(method_name, params), result_tx, timeout)
+                            .await;
+
+                        let result = result_rx
+                            .await
+                            .map_err(|_| errors::map_error(jsonrpsee::core::client::Error::RequestTimeout))?;
+
+                        match result.as_ref() {
+                            Ok(_) => tracer.span_ok(),
+                            Err(err) => {
+                                tracer.span_error(err);
+                            }
+                        };
+
+                        result
+                    }
+                    .with_context(tracer.context(method_name))
+                })?;
+            }
+
+            // register subscriptions from config
+            for subscription in config.rpcs.subscriptions {
+                let subscribe_name = string_to_static_str(subscription.subscribe.clone());
+                let unsubscribe_name = string_to_static_str(subscription.unsubscribe.clone());
+                let name = string_to_static_str(subscription.name.clone());
+
+                let mut subscription_middlewares: Vec<Arc<_>> = vec![];
+
+                for middleware_name in &config.middlewares.subscriptions {
+                    if let Some(middleware) =
+                        factory::create_subscription_middleware(middleware_name, &subscription, &registry).await
+                    {
+                        subscription_middlewares.push(middleware.into());
+                    }
+                }
+
+                let subscription_middlewares = Middlewares::new(
+                    subscription_middlewares,
+                    Arc::new(|_, _| async { Err("Bad configuration".into()) }.boxed()),
+                );
+
+                module.register_subscription(
+                    subscribe_name,
+                    name,
+                    unsubscribe_name,
+                    move |params, pending_sink, _| {
+                        let subscription_middlewares = subscription_middlewares.clone();
                         async move {
                             let parsed = params.parse::<JsonValue>()?;
                             let params = if parsed == JsonValue::Null {
@@ -104,8 +152,17 @@ pub async fn build(config: Config) -> anyhow::Result<SubwayServerHandle> {
                             let (result_tx, result_rx) = tokio::sync::oneshot::channel();
                             let timeout = tokio::time::Duration::from_secs(request_timeout_seconds);
 
-                            method_middlewares
-                                .call(CallRequest::new(method_name, params), result_tx, timeout)
+                            subscription_middlewares
+                                .call(
+                                    SubscriptionRequest {
+                                        subscribe: subscribe_name.into(),
+                                        params,
+                                        unsubscribe: unsubscribe_name.into(),
+                                        pending_sink,
+                                    },
+                                    result_tx,
+                                    timeout,
+                                )
                                 .await;
 
                             let result = result_rx
@@ -113,112 +170,43 @@ pub async fn build(config: Config) -> anyhow::Result<SubwayServerHandle> {
                                 .map_err(|_| errors::map_error(jsonrpsee::core::client::Error::RequestTimeout))?;
 
                             match result.as_ref() {
-                                Ok(_) => tracer.span_ok(),
+                                Ok(_) => {
+                                    tracer.span_ok();
+                                }
                                 Err(err) => {
-                                    tracer.span_error(err);
+                                    tracer.span_error(&errors::failed(format!("{:?}", err)));
                                 }
                             };
 
                             result
                         }
-                        .with_context(tracer.context(method_name))
-                    })?;
-                }
+                        .with_context(tracer.context(name))
+                    },
+                )?;
+            }
 
-                // register subscriptions from config
-                for subscription in config.rpcs.subscriptions {
-                    let subscribe_name = string_to_static_str(subscription.subscribe.clone());
-                    let unsubscribe_name = string_to_static_str(subscription.unsubscribe.clone());
-                    let name = string_to_static_str(subscription.name.clone());
+            // register aliases from config
+            for (alias_old, alias_new) in config.rpcs.aliases {
+                let alias_old = string_to_static_str(alias_old);
+                let alias_new = string_to_static_str(alias_new);
+                module.register_alias(alias_new, alias_old)?;
+            }
 
-                    let mut subscription_middlewares: Vec<Arc<_>> = vec![];
+            module.register_method("health", |_, _| Ok::<_, ErrorObjectOwned>(()))?;
 
-                    for middleware_name in &config.middlewares.subscriptions {
-                        if let Some(middleware) =
-                            factory::create_subscription_middleware(middleware_name, &subscription, &registry).await
-                        {
-                            subscription_middlewares.push(middleware.into());
-                        }
-                    }
+            let mut rpc_methods = module.method_names().map(|x| x.to_owned()).collect::<Vec<_>>();
 
-                    let subscription_middlewares = Middlewares::new(
-                        subscription_middlewares,
-                        Arc::new(|_, _| async { Err("Bad configuration".into()) }.boxed()),
-                    );
+            rpc_methods.sort();
 
-                    module.register_subscription(
-                        subscribe_name,
-                        name,
-                        unsubscribe_name,
-                        move |params, pending_sink, _| {
-                            let subscription_middlewares = subscription_middlewares.clone();
-                            async move {
-                                let parsed = params.parse::<JsonValue>()?;
-                                let params = if parsed == JsonValue::Null {
-                                    vec![]
-                                } else {
-                                    parsed.as_array().ok_or_else(|| errors::invalid_params(""))?.to_owned()
-                                };
+            module.register_method("rpc_methods", move |_, _| {
+                Ok::<JsonValue, ErrorObjectOwned>(json!({
+                    "version": 1,
+                    "methods": rpc_methods
+                }))
+            })?;
 
-                                let (result_tx, result_rx) = tokio::sync::oneshot::channel();
-                                let timeout = tokio::time::Duration::from_secs(request_timeout_seconds);
-
-                                subscription_middlewares
-                                    .call(
-                                        SubscriptionRequest {
-                                            subscribe: subscribe_name.into(),
-                                            params,
-                                            unsubscribe: unsubscribe_name.into(),
-                                            pending_sink,
-                                        },
-                                        result_tx,
-                                        timeout,
-                                    )
-                                    .await;
-
-                                let result = result_rx
-                                    .await
-                                    .map_err(|_| errors::map_error(jsonrpsee::core::client::Error::RequestTimeout))?;
-
-                                match result.as_ref() {
-                                    Ok(_) => {
-                                        tracer.span_ok();
-                                    }
-                                    Err(err) => {
-                                        tracer.span_error(&errors::failed(format!("{:?}", err)));
-                                    }
-                                };
-
-                                result
-                            }
-                            .with_context(tracer.context(name))
-                        },
-                    )?;
-                }
-
-                // register aliases from config
-                for (alias_old, alias_new) in config.rpcs.aliases {
-                    let alias_old = string_to_static_str(alias_old);
-                    let alias_new = string_to_static_str(alias_new);
-                    module.register_alias(alias_new, alias_old)?;
-                }
-
-                module.register_method("health", |_, _| Ok::<_, ErrorObjectOwned>(()))?;
-
-                let mut rpc_methods = module.method_names().map(|x| x.to_owned()).collect::<Vec<_>>();
-
-                rpc_methods.sort();
-
-                module.register_method("rpc_methods", move |_, _| {
-                    Ok::<JsonValue, ErrorObjectOwned>(json!({
-                        "version": 1,
-                        "methods": rpc_methods
-                    }))
-                })?;
-
-                Ok(module)
-            },
-        )
+            Ok(module)
+        })
         .await?;
 
     Ok(SubwayServerHandle {

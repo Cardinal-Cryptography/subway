@@ -8,7 +8,7 @@ use jsonrpsee::server::{
     ServerHandle,
 };
 use jsonrpsee::Methods;
-use prometheus_endpoint::Registry;
+
 use serde::ser::StdError;
 use serde::Deserialize;
 
@@ -21,12 +21,13 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use super::{Extension, ExtensionRegistry};
 use crate::extensions::rate_limit::{MethodWeights, RateLimitBuilder, XFF};
+pub use prometheus::Protocol;
 
 mod prometheus;
 mod proxy_get_request;
 mod ready_get_request;
 use crate::extensions::prometheus::RpcMetrics;
-use crate::extensions::server::prometheus::{PrometheusService, Protocol};
+use crate::extensions::server::prometheus::PrometheusService;
 use proxy_get_request::{ProxyGetRequestLayer, ProxyGetRequestMethod};
 use ready_get_request::ReadyProxyLayer;
 
@@ -107,7 +108,6 @@ impl SubwayServerBuilder {
         &self,
         rate_limit_builder: Option<Arc<RateLimitBuilder>>,
         rpc_method_weights: MethodWeights,
-        prometheus_registry: Option<Registry>,
         rpc_metrics: RpcMetrics,
         rpc_module_builder: impl FnOnce() -> Fut,
     ) -> anyhow::Result<(SocketAddr, ServerHandle)> {
@@ -142,7 +142,6 @@ impl SubwayServerBuilder {
             let stop_handle = stop_handle.clone();
             let rate_limit_builder = rate_limit_builder.clone();
             let rpc_method_weights = rpc_method_weights.clone();
-            let prometheus_registry = prometheus_registry.clone();
             let rpc_metrics = rpc_metrics.clone();
 
             async move {
@@ -156,6 +155,7 @@ impl SubwayServerBuilder {
                     let stop_handle = stop_handle.clone();
                     let http_middleware = http_middleware.clone();
                     let rpc_metrics = rpc_metrics.clone();
+                    let call_metrics = rpc_metrics.call_metrics();
 
                     if let Some(true) = rate_limit_builder.as_ref().map(|r| r.use_xff()) {
                         socket_ip = req.xxf_ip().unwrap_or(socket_ip);
@@ -173,9 +173,9 @@ impl SubwayServerBuilder {
                                 .and_then(|r| r.connection_limit(rpc_method_weights.clone())),
                         )
                         .option_layer(
-                            prometheus_registry
+                            call_metrics
                                 .as_ref()
-                                .map(|r| layer_fn(|s| PrometheusService::new(s, r, protocol))),
+                                .map(|(a, b, c)| layer_fn(|s| PrometheusService::new(s, protocol, a, b, c))),
                         );
 
                     let service_builder = ServerBuilder::default()
