@@ -14,7 +14,7 @@ RUN useradd -m -u 1000 -U -s /bin/sh -d /app docker
 WORKDIR /app
 
 COPY --from=builder /app/target/release/subway /usr/local/bin
-COPY ./config.yml /app/config.yml
+COPY ./configs/config.yml /app/config.yml
 
 USER docker
 

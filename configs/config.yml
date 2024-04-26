@@ -2,7 +2,6 @@ extensions:
   client:
     endpoints:
       - ws://localhost:9944
-      - wss://ws.test.azero.dev
   event_bus:
   substrate_api:
     stale_timeout_seconds: 180 # rotate endpoint if no new blocks for 3 minutes
