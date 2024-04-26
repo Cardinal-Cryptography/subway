@@ -5,15 +5,11 @@ use std::{
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use futures::TryFutureExt;
-use jsonrpsee::{
-    core::{
-        client::{ClientT, Error, Subscription, SubscriptionClientT},
-        JsonValue,
-    },
-    ws_client::{WsClient, WsClientBuilder},
-};
 use futures::FutureExt as _;
+use jsonrpsee::core::{
+    client::{Error, Subscription},
+    JsonValue,
+};
 use opentelemetry::trace::FutureExt;
 use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
