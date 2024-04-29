@@ -17,6 +17,7 @@ pub mod prometheus;
 pub mod rate_limit;
 pub mod server;
 pub mod telemetry;
+pub mod validator;
 
 #[async_trait]
 pub trait Extension: Sized {
@@ -140,4 +141,5 @@ define_all_extensions! {
     event_bus: event_bus::EventBus,
     rate_limit: rate_limit::RateLimitBuilder,
     prometheus: prometheus::Prometheus,
+    validator: validator::Validator,
 }

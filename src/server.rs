@@ -4,6 +4,7 @@ use futures::FutureExt;
 use jsonrpsee::{
     core::JsonValue,
     server::{RpcModule, ServerHandle},
+    types::error::INTERNAL_ERROR_CODE,
     types::ErrorObjectOwned,
 };
 use opentelemetry::trace::FutureExt as _;
@@ -99,16 +100,23 @@ pub async fn build(config: Config) -> anyhow::Result<SubwayServerHandle> {
 
                         let result = result_rx
                             .await
-                            .map_err(|_| errors::map_error(jsonrpsee::core::client::Error::RequestTimeout))?;
+                            .map_err(|_| errors::map_error(jsonrpsee::core::client::Error::RequestTimeout));
 
                         match result.as_ref() {
-                            Ok(_) => tracer.span_ok(),
+                            Ok(Ok(_)) => tracer.span_ok(),
+                            Ok(Err(err)) => {
+                                if err.code() == INTERNAL_ERROR_CODE {
+                                    tracer.span_error(err)
+                                } else {
+                                    tracer.span_ok()
+                                }
+                            }
                             Err(err) => {
                                 tracer.span_error(err);
                             }
                         };
 
-                        result
+                        result?
                     }
                     .with_context(tracer.context(method_name))
                 })?;
@@ -244,6 +252,7 @@ mod tests {
                 client: Some(ClientConfig {
                     endpoints: vec![endpoint],
                     shuffle_endpoints: false,
+                    health_check: None,
                 }),
                 server: Some(ServerConfig {
                     listen_address: "127.0.0.1".to_string(),

@@ -176,9 +176,7 @@ impl MiddlewareBuilder<RpcSubscription, SubscriptionRequest, SubscriptionResult>
         method: &RpcSubscription,
         extensions: &TypeRegistryRef,
     ) -> Option<Box<dyn Middleware<SubscriptionRequest, SubscriptionResult>>> {
-        let Some(merge_strategy) = method.merge_strategy else {
-            return None;
-        };
+        let merge_strategy = method.merge_strategy?;
 
         let ext = extensions.read().await;
         let client = ext.get::<Client>().expect("Client extension not found");

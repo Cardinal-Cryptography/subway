@@ -502,5 +502,6 @@ aliases:
   - [ state_getStorage, state_getStorageAt ]
   - [ state_getStorageHash, state_getStorageHashAt ]
   - [ state_getStorageSize, state_getStorageSizeAt ]
+  - [ state_getRuntimeVersion, chain_getRuntimeVersion ]
   - [ childstate_getKeysPaged, childstate_getKeysPagedAt ]
   - [ chain_getFinalizedHead, chain_getFinalisedHead ]
