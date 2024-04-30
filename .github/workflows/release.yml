@@ -1,0 +1,53 @@
+name: Tag branch version as release
+
+on:
+  release:
+    types: [released]
+
+jobs:
+  tag-release:
+    name: Tag branch version as release
+    runs-on: ubuntu-latest
+    steps:
+      - name: GIT | Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.0
+        with:
+          access_token: ${{ github.token }}
+
+      - name: GIT | Checkout Source code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: GIT | Get branch info & current commit sha.
+        id: vars
+        shell: bash
+        run: |
+          echo "##[set-output name=branch;]$(echo ${GITHUB_REF##*/})"
+          echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+      - name: Login to Public Amazon ECR
+        id: login-public-ecr
+        uses: docker/login-action@v1
+        with:
+          registry: ${{vars.ECR_PUBLIC_HOST}}
+          username: ${{ secrets.AWS_MAINNET_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_MAINNET_SECRET_ACCESS_KEY }}
+        env:
+          AWS_REGION: us-east-1
+
+      - name: Tag and push release image
+        env:
+          BASE_IMAGE: ${{ vars.ECR_PUBLIC_REGISTRY }}subway:${{ steps.vars.outputs.sha_short }}
+          RELEASE_IMAGE: ${{ vars.ECR_PUBLIC_REGISTRY }}subway:${{ steps.vars.outputs.branch }}
+        run: |
+          export image_not_exist=$(docker manifest inspect ${{ env.BASE_IMAGE }} &> /dev/null ; echo $?)
+
+          if [ $image_not_exist -eq 1 ]; then
+            echo "::error title=Wrong docker image tag::Docker image ${{ env.BASE_IMAGE }} doesn't exist"
+            exit 1
+          else
+            docker pull ${{ env.BASE_IMAGE }}
+            docker tag ${{ env.BASE_IMAGE }} ${{ env.RELEASE_IMAGE }}
+            docker push ${{ env.RELEASE_IMAGE }}
+          fi
