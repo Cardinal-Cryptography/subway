@@ -47,8 +47,10 @@ impl Drop for Client {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Validate, Debug)]
+#[garde(allow_unvalidated)]
 pub struct ClientConfig {
+    #[garde(inner(custom(validate_endpoint)))]
     pub endpoints: Vec<String>,
     #[serde(default = "bool_true")]
     pub shuffle_endpoints: bool,

@@ -117,10 +117,13 @@ pub struct MiddlewaresConfig {
     pub subscriptions: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Validate)]
+#[garde(allow_unvalidated)]
 pub struct Config {
+    #[garde(dive)]
     pub extensions: ExtensionsConfig,
     pub middlewares: MiddlewaresConfig,
+    #[garde(dive)]
     pub rpcs: RpcDefinitions,
 }
 
@@ -227,9 +230,38 @@ fn validate_config(config: &Config) -> Result<(), anyhow::Error> {
             } else if has_optional {
                 bail!("Method {} has required param after optional param", method.method);
             }
+            (None, None) => env::var(&caps[1]),
+            _ => Err(env::VarError::NotPresent),
+        }
+    };
+
+    // replace every matches with early return
+    // when encountering error
+    for caps in re.captures_iter(templated_config_str) {
+        let m = caps
+            .get(0)
+            .expect("i==0 means implicit unnamed group that includes the entire match, which is infalliable");
+        config_str.push_str(&templated_config_str[last_match..m.start()]);
+        config_str.push_str(
+            &replacement(&caps).with_context(|| format!("Unable to replace environment variable {}", &caps[1]))?,
+        );
+        last_match = m.end();
+    }
+    config_str.push_str(&templated_config_str[last_match..]);
+    Ok(config_str)
+}
+
+pub async fn validate(config: &Config) -> Result<(), anyhow::Error> {
+    // validate use garde::Validate
+    config.validate(&())?;
+    // since endpoints connection test is async
+    // we can't intergrate it into garde::Validate
+    // and it's not a static validation like format, length, .etc
+    if let Some(client_config) = &config.extensions.client {
+        if !client_config.all_endpoints_can_be_connected().await {
+            anyhow::bail!("Unable to connect to all endpoints");
         }
     }
-
     Ok(())
 }
 
