@@ -18,4 +18,4 @@ COPY ./configs/config.yml /app/config.yml
 
 USER docker
 
-ENTRYPOINT ["/usr/local/bin/subway"]
+ENTRYPOINT ["/usr/local/bin/subway", "--config=config.yml"]
