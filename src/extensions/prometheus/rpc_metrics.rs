@@ -1,4 +1,4 @@
-use prometheus_endpoint::{register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, Registry, U64};
+use substrate_prometheus_endpoint::{register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, Registry, U64};
 
 #[derive(Clone)]
 pub enum RpcMetrics {

@@ -2,8 +2,8 @@ mod rpc_metrics;
 
 use super::{Extension, ExtensionRegistry};
 use async_trait::async_trait;
-use prometheus_endpoint::init_prometheus;
-use prometheus_endpoint::Registry;
+use substrate_prometheus_endpoint::init_prometheus;
+use substrate_prometheus_endpoint::Registry;
 use serde::Deserialize;
 use std::iter;
 use std::net::SocketAddr;
