@@ -2,7 +2,7 @@ use futures::{future::BoxFuture, FutureExt};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::Request;
 use jsonrpsee::MethodResponse;
-use prometheus_endpoint::{CounterVec, HistogramVec, U64};
+use substrate_prometheus_endpoint::{CounterVec, HistogramVec, U64};
 
 use std::fmt::Display;
 
