@@ -24,7 +24,7 @@ jobs:
       with:
         toolchain: nightly-2024-02-09
         components: rustfmt, clippy
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     - name: Check format
