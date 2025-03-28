@@ -16,8 +16,6 @@ jobs:
 
       - name: GIT | Checkout Source code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: GIT | Get branch info & current commit sha.
         id: vars

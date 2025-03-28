@@ -90,14 +90,6 @@ pub fn enable_logger() {
 
     let fmt_layer = tracing_subscriber::fmt::layer();
 
-    #[cfg(tokio_unstable)]
-    let log_layer = {
-        let console_layer = console_subscriber::ConsoleLayer::builder().with_default_env().spawn();
-
-        registry.with(console_layer)
-    };
-
-    #[cfg(not(tokio_unstable))]
     let log_layer = registry;
 
     let _ = match log_format.as_str() {

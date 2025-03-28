@@ -46,7 +46,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 substrate-prometheus-endpoint = "0.17.0"
 
 jsonrpsee = { version = "0.22.1",features = ["full"] }
-governor = { path = "./vendor/governor/governor" }
+governor = "0.6.3"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["async_tokio", "html_reports"] }
@@ -59,9 +59,6 @@ jsonrpc-pubsub = { version = "18.0.0" }
 [[bench]]
 name = "bench"
 harness = false
-
-[target.'cfg(tokio_unstable)'.dependencies]
-console-subscriber = "0.2.0"
 
 [profile.release]
 codegen-units = 1
