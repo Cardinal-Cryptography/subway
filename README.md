@@ -8,13 +8,9 @@ This is a generalized JSON RPC proxy server with features specifically designed 
 
 ## Getting Started
 
-Pull vendors: `git submodule update --init --recursive`
-
 Quick start: `cargo run -- --config configs/config.yml`
 
 This will run a proxy server with [config.yml](configs/config.yml) as the configuration file.
-
-Run with `RUSTFLAGS="--cfg tokio_unstable"` to enable [tokio-console](https://github.com/tokio-rs/console)
 
 ## Environment Variables
 

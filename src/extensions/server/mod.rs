@@ -4,8 +4,8 @@ use hyper::server::conn::AddrStream;
 use hyper::service::Service;
 use hyper::service::{make_service_fn, service_fn};
 use jsonrpsee::server::{
-    middleware::rpc::RpcServiceBuilder, stop_channel, ws, RandomStringIdProvider, RpcModule, ServerBuilder,
-    ServerHandle,
+    middleware::rpc::RpcServiceBuilder, stop_channel, ws, BatchRequestConfig, RandomStringIdProvider, RpcModule,
+    ServerBuilder, ServerHandle,
 };
 use jsonrpsee::Methods;
 
@@ -62,6 +62,9 @@ pub struct ServerConfig {
     pub port: u16,
     pub listen_address: String,
     pub max_connections: u32,
+    #[serde(default = "default_max_subscriptions_per_connection")]
+    pub max_subscriptions_per_connection: u32,
+    pub max_batch_size: Option<u32>,
     #[serde(default)]
     pub http_methods: Vec<HttpMethodsConfig>,
     #[serde(default = "default_request_timeout_seconds")]
@@ -72,6 +75,10 @@ pub struct ServerConfig {
 
 fn default_request_timeout_seconds() -> u64 {
     120
+}
+
+fn default_max_subscriptions_per_connection() -> u32 {
+    1024
 }
 
 #[async_trait]
@@ -178,10 +185,18 @@ impl SubwayServerBuilder {
                                 .map(|(a, b, c)| layer_fn(|s| PrometheusService::new(s, protocol, a, b, c))),
                         );
 
+                    let batch_request_config = match config.max_batch_size {
+                        Some(0) => BatchRequestConfig::Disabled,
+                        Some(max_size) => BatchRequestConfig::Limit(max_size),
+                        None => BatchRequestConfig::Unlimited,
+                    };
+
                     let service_builder = ServerBuilder::default()
                         .set_rpc_middleware(rpc_middleware)
                         .set_http_middleware(http_middleware)
                         .max_connections(config.max_connections)
+                        .max_subscriptions_per_connection(config.max_subscriptions_per_connection)
+                        .set_batch_request_config(batch_request_config)
                         .set_id_provider(RandomStringIdProvider::new(16))
                         .to_service_builder();
 

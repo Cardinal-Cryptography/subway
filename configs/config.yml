@@ -16,6 +16,7 @@ extensions:
     port: 9934
     listen_address: '0.0.0.0'
     max_connections: 2000
+    max_batch_size: 10
     http_methods:
       - path: /health
         method: health

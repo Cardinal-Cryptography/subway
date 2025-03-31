@@ -1,3 +1,0 @@
-[submodule "vendor/governor"]
-	path = vendor/governor
-	url = https://github.com/AcalaNetwork/governor.git
